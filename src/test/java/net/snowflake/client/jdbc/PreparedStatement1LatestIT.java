@@ -303,4 +303,45 @@ public class PreparedStatement1LatestIT extends PreparedStatement0IT {
       statement.close();
     }
   }
+
+  /**
+   * Test the return metadata for stored procedures.
+   *
+   * @throws SQLException
+   */
+  @Test
+  @Ignore
+  public void testCallStatementMetadata() throws SQLException {
+    try (Connection connection = getConnection()) {
+      Statement statement = connection.createStatement();
+      statement.executeQuery(
+              "CREATE OR REPLACE procedure test_table_sql_sp()\n"
+                      + "RETURNS TABLE (\"a\" TIMESTAMP_NTZ(6))\n"
+                      + "language sql\n"
+                      + "as\n"
+                      + "$$\n"
+                      + "       declare    \n"
+                      + "              res resultset;\n"
+                      + "              TEMP_DATE TIMESTAMP_NTZ(6);\n"
+                      + "begin\n"
+                      + "    TEMP_DATE := CURRENT_TIMESTAMP()::TIMESTAMP_NTZ(6);\n"
+                      + "    res := (SELECT :TEMP_DATE as c);\n"
+                      + "    return table(res);\n"
+                      + "\n"
+                      + "end;\n"
+                      + "$$\n"
+                      + ";");
+
+      PreparedStatement prepStatement =
+              connection.prepareStatement("call test_table_sql_sp()");
+
+      ResultSetMetaData rs = prepStatement.getMetaData();
+      assertEquals("a", rs.getColumnName(1));
+      assertEquals("TIMESTAMP_NTZ", rs.getColumnTypeName(1));
+
+      statement.executeQuery("drop procedure if exists test_table_sql_sp()");
+      prepStatement.close();
+      statement.close();
+    }
+  }
 }
